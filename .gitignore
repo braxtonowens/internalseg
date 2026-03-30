@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+projects/
+copick_overlay/
+copick_static/
+.DS_Store
