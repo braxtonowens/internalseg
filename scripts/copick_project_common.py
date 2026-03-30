@@ -1,8 +1,231 @@
 #!/usr/bin/env python3
 
+import copy
 import json
 import re
 from pathlib import Path
+
+
+HELA_STRESS_TEMPLATE = {'dataset_ids': [10473, 10474, 10475, 10476],
+ 'description': 'This copick project contains data from datasets (10476,).',
+ 'name': 'CZ cryoET Data Portal Dataset',
+ 'pickable_objects': [{'color': [255, 225, 25, 255],
+                       'emdb_id': None,
+                       'identifier': 'CDPO:0000001',
+                       'is_particle': False,
+                       'label': 1,
+                       'map_threshold': None,
+                       'name': 'sample',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [0, 255, 0, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0016020',
+                       'is_particle': False,
+                       'label': 2,
+                       'map_threshold': None,
+                       'name': 'membrane',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [60, 180, 75, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0048475',
+                       'is_particle': False,
+                       'label': 3,
+                       'map_threshold': None,
+                       'name': 'coated-membrane',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [0, 210, 140, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0031974',
+                       'is_particle': False,
+                       'label': 4,
+                       'map_threshold': None,
+                       'name': 'membrane-tubule',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [170, 110, 40, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0005618',
+                       'is_particle': False,
+                       'label': 5,
+                       'map_threshold': None,
+                       'name': 'cell-wall',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [255, 165, 0, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0031982',
+                       'is_particle': False,
+                       'label': 6,
+                       'map_threshold': None,
+                       'name': 'vesicle',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [255, 69, 0, 255],
+                       'emdb_id': None,
+                       'identifier': 'coated-vesicle',
+                       'is_particle': False,
+                       'label': 7,
+                       'map_threshold': None,
+                       'name': 'coated-vesicle',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [210, 105, 30, 255],
+                       'emdb_id': None,
+                       'identifier': None,
+                       'is_particle': False,
+                       'label': 8,
+                       'map_threshold': None,
+                       'name': 'dense-vesicle',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [245, 130, 48, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0030133',
+                       'is_particle': False,
+                       'label': 9,
+                       'map_threshold': None,
+                       'name': 'transport-vesicle',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [230, 190, 50, 255],
+                       'emdb_id': None,
+                       'identifier': None,
+                       'is_particle': False,
+                       'label': 10,
+                       'map_threshold': None,
+                       'name': 'multilamellar-vesicle',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [50, 205, 50, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0005776',
+                       'is_particle': False,
+                       'label': 11,
+                       'map_threshold': None,
+                       'name': 'autophagosome',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [255, 0, 0, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0005739',
+                       'is_particle': False,
+                       'label': 12,
+                       'map_threshold': None,
+                       'name': 'mitochondrion',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [220, 20, 60, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0030061',
+                       'is_particle': False,
+                       'label': 13,
+                       'map_threshold': None,
+                       'name': 'mitochondrial-cristae',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [178, 34, 34, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0005759',
+                       'is_particle': False,
+                       'label': 14,
+                       'map_threshold': None,
+                       'name': 'mitochondrial-matrix',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [255, 99, 71, 255],
+                       'emdb_id': None,
+                       'identifier': None,
+                       'is_particle': False,
+                       'label': 15,
+                       'map_threshold': None,
+                       'name': 'mitochondrial-crystal',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [138, 43, 226, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0005791',
+                       'is_particle': False,
+                       'label': 16,
+                       'map_threshold': None,
+                       'name': 'rough-er',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [186, 85, 211, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0071782',
+                       'is_particle': False,
+                       'label': 17,
+                       'map_threshold': None,
+                       'name': 'endoplasmic-reticulum-tubular-network',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [75, 0, 130, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0005635',
+                       'is_particle': False,
+                       'label': 18,
+                       'map_threshold': None,
+                       'name': 'nuclear-envelope',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [123, 104, 238, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0031981',
+                       'is_particle': False,
+                       'label': 19,
+                       'map_threshold': None,
+                       'name': 'nuclear-lumen',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [148, 103, 189, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0005643',
+                       'is_particle': False,
+                       'label': 20,
+                       'map_threshold': None,
+                       'name': 'nuclear-pore',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [0, 0, 255, 255],
+                       'emdb_id': None,
+                       'identifier': 'GO:0005874',
+                       'is_particle': False,
+                       'label': 21,
+                       'map_threshold': None,
+                       'name': 'microtubules',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [255, 20, 147, 255],
+                       'emdb_id': None,
+                       'identifier': 'CDPO:0000020',
+                       'is_particle': False,
+                       'label': 22,
+                       'map_threshold': None,
+                       'name': 'protein-aggregate',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [0, 191, 255, 255],
+                       'emdb_id': None,
+                       'identifier': 'CDPO:0000014',
+                       'is_particle': False,
+                       'label': 23,
+                       'map_threshold': None,
+                       'name': 'ice-contamination',
+                       'pdb_id': None,
+                       'radius': 50.0},
+                      {'color': [230, 25, 75, 255],
+                       'emdb_id': None,
+                       'identifier': 'CDPO:0000015',
+                       'is_particle': False,
+                       'label': 24,
+                       'map_threshold': None,
+                       'name': 'sputter-particle',
+                       'pdb_id': None,
+                       'radius': 50.0}],
+ 'version': '1.19.0'}
 
 
 def load_json(path: Path) -> dict:
@@ -52,27 +275,40 @@ def yeast_pickable_objects() -> list[dict]:
     ]
 
 
-def hela_stress_pickable_objects() -> list[dict]:
-    return [
-        {"name": "mitochondria", "is_particle": False, "label": 1, "color": [255, 184, 108, 255], "radius": 10.0, "metadata": {"source_names": ["mitochondria", "mitochondrion"]}},
-        {"name": "cytoplasm", "is_particle": False, "label": 2, "color": [88, 166, 255, 255], "radius": 10.0, "metadata": {"source_names": ["cytoplasm"]}},
-        {"name": "nucleus", "is_particle": False, "label": 3, "color": [255, 122, 69, 255], "radius": 10.0, "metadata": {"source_names": ["nucleus"]}},
-        {"name": "endoplasmic-reticulum", "is_particle": False, "label": 4, "color": [186, 104, 200, 255], "radius": 10.0, "metadata": {"source_names": ["endoplasmic_reticulum", "er"]}},
-        {"name": "golgi", "is_particle": False, "label": 5, "color": [212, 175, 55, 255], "radius": 10.0, "metadata": {"source_names": ["golgi", "golgi_apparatus"]}},
-        {"name": "lysosome", "is_particle": False, "label": 6, "color": [120, 220, 140, 255], "radius": 10.0, "metadata": {"source_names": ["lysosome", "lysosomes"]}},
-        {"name": "lipid-droplet", "is_particle": False, "label": 7, "color": [245, 229, 99, 255], "radius": 10.0, "metadata": {"source_names": ["lipid_droplet"]}},
-        {"name": "plasma-membrane", "is_particle": False, "label": 8, "color": [214, 134, 174, 255], "radius": 10.0, "metadata": {"source_names": ["plasma_membrane", "cell_membrane"]}},
-    ]
+def bacteria_template() -> dict:
+    return {
+        "name": "Bacteria Annotation Project",
+        "description": "Local annotation project using the bacteria class preset.",
+        "version": "1.20.0",
+        "pickable_objects": bacteria_pickable_objects(),
+    }
+
+
+def yeast_template() -> dict:
+    return {
+        "name": "Yeast Annotation Project",
+        "description": "Local annotation project using the yeast class preset.",
+        "version": "1.20.0",
+        "pickable_objects": yeast_pickable_objects(),
+    }
+
+
+def hela_stress_template() -> dict:
+    return copy.deepcopy(HELA_STRESS_TEMPLATE)
+
+
+def preset_template(preset: str) -> dict:
+    if preset == "bacteria":
+        return bacteria_template()
+    if preset == "yeast":
+        return yeast_template()
+    if preset == "hela":
+        return hela_stress_template()
+    raise ValueError(f"unsupported preset: {preset}")
 
 
 def preset_objects(preset: str) -> list[dict]:
-    if preset == "bacteria":
-        return bacteria_pickable_objects()
-    if preset == "yeast":
-        return yeast_pickable_objects()
-    if preset == "hela-stress":
-        return hela_stress_pickable_objects()
-    raise ValueError(f"unsupported preset: {preset}")
+    return list(preset_template(preset).get("pickable_objects", []))
 
 
 def preset_default_object(preset: str) -> str:
@@ -80,9 +316,17 @@ def preset_default_object(preset: str) -> str:
         return "periplasm"
     if preset == "yeast":
         return "plasma-membrane"
-    if preset == "hela-stress":
-        return "mitochondria"
+    if preset == "hela":
+        return "mitochondrion"
     raise ValueError(f"unsupported preset: {preset}")
+
+
+def preset_project_name(preset: str) -> str:
+    return str(preset_template(preset).get("name", f"{preset.title()} Annotation Project"))
+
+
+def preset_description(preset: str) -> str:
+    return str(preset_template(preset).get("description", f"Local annotation project using the {preset} class preset."))
 
 
 def object_names_from_copick_config(copick_config_path: Path) -> list[str]:

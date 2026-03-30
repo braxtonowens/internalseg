@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from chunk_registry_common import build_registry
-from copick_project_common import preset_default_object, preset_objects, save_json
+from copick_project_common import preset_default_object, preset_description, preset_objects, preset_project_name, preset_template, save_json
 
 
 def prompt_if_missing(value: str | None, prompt: str) -> str:
@@ -49,6 +49,8 @@ def dataset_project_name(dataset_id: str, preset: str, chunk_index: int, chunk_c
     return f"{base}-chunk-{chunk_index:03d}-of-{chunk_count:03d}"
 
 
+
+
 def write_local_project(
     project_root: Path,
     dataset_id: str,
@@ -74,34 +76,41 @@ def write_local_project(
     static_root.mkdir(parents=True, exist_ok=True)
     overlay_root.mkdir(parents=True, exist_ok=True)
 
-    project_label = f"Dataset {dataset_id} {preset.title()} Project"
+    project_name = preset_project_name(preset)
     if chunk_count > 1:
-        project_label = f"{project_label} Chunk {chunk_index}/{chunk_count}"
+        project_name = f"{project_name} Chunk {chunk_index}/{chunk_count}"
+    description = preset_description(preset)
+    template = preset_template(preset)
+    pickable_objects = preset_objects(preset)
+    default_object_name = preset_default_object(preset)
 
     project_config = {
         "static_backend": "local",
         "static_root": str(static_root),
         "overlay_root": str(overlay_root),
         "config_path": str(copick_config_path),
-        "project_name": project_label,
-        "description": f"Local annotation project for dataset {dataset_id} using the {preset} class preset.",
+        "project_name": project_name,
+        "description": description,
         "skip_validation": True,
-        "default_object_name": preset_default_object(preset),
+        "default_object_name": default_object_name,
         "default_user_id": user_id,
     }
     save_json(project_config_path, project_config)
 
-    copick_config = {
+    copick_config = dict(template)
+    for key in ["config_type", "overlay_root", "overlay_fs_args", "static_root", "static_fs_args"]:
+        copick_config.pop(key, None)
+    copick_config.update({
         "config_type": "filesystem",
         "name": project_config["project_name"],
         "description": project_config["description"],
-        "version": "1.20.0",
-        "pickable_objects": preset_objects(preset),
+        "version": str(template.get("version", "1.20.0")),
+        "pickable_objects": pickable_objects,
         "overlay_root": f"local://{overlay_root}",
         "overlay_fs_args": {"auto_mkdir": True},
         "static_root": f"local://{static_root}",
         "static_fs_args": {"auto_mkdir": False},
-    }
+    })
     save_json(copick_config_path, copick_config)
 
     manifest = {
@@ -110,7 +119,7 @@ def write_local_project(
         "user_id": user_id,
         "remote_host": remote_host,
         "remote_projects_root": remote_projects_root,
-        "object_names": [obj["name"] for obj in preset_objects(preset)],
+        "object_names": [str(obj.get("name", "")).strip() for obj in pickable_objects if str(obj.get("name", "")).strip()],
         "source_cache_root": str(source_cache_root),
         "project_root": str(project_root),
         "project_config_path": str(project_config_path),
@@ -162,7 +171,7 @@ def download_run_via_aws_sync(run, source_cache_root: Path, dataset_id: str, dry
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download a chunk of runs directly from the CryoET Portal and create a local copick annotation project.")
     parser.add_argument("--dataset-id", required=True, help="Portal dataset id, for example 10274.")
-    parser.add_argument("--preset", choices=["bacteria", "yeast", "hela-stress"], required=True, help="Class preset to apply.")
+    parser.add_argument("--preset", choices=["bacteria", "yeast", "hela"], required=True, help="Class preset to apply.")
     parser.add_argument("--chunk-size", type=int, required=True, help="Number of runs to include in one local chunk.")
     parser.add_argument("--chunk-index", type=int, default=1, help="1-based chunk index to download.")
     parser.add_argument("--projects-dir", default=str(Path.cwd() / "projects"), help="Parent directory where the local project folder will be created.")
@@ -180,7 +189,6 @@ def main() -> int:
     root = Path(__file__).resolve().parent.parent
     scripts_dir = root / "scripts"
     user_id = prompt_if_missing(args.user_id, "Annotation user id: ")
-
     runs = portal_runs(int(args.dataset_id))
     if not runs:
         print(f"error: no runs found for dataset {args.dataset_id}", file=sys.stderr)

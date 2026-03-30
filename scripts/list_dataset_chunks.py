@@ -9,7 +9,7 @@ from chunk_registry_common import build_registry
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="List chunk boundaries for a Portal dataset without contacting the remote server.")
     parser.add_argument("--dataset-id", required=True, help="Portal dataset id, for example 10274.")
-    parser.add_argument("--preset", choices=["bacteria", "yeast", "hela-stress"], required=True, help="Class preset to inspect.")
+    parser.add_argument("--preset", choices=["bacteria", "yeast", "hela"], required=True, help="Class preset to inspect.")
     parser.add_argument("--chunk-size", type=int, required=True, help="Number of runs per chunk.")
     return parser.parse_args()
 

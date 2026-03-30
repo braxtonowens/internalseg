@@ -30,17 +30,26 @@ def copick_version() -> str:
         return "unknown"
 
 
-def load_static_seed_config(static_root: Path) -> dict:
-    seed_path = static_root / "copick_config.json"
-    if not seed_path.exists():
+def load_seed_config(path: Path | None) -> dict:
+    if path is None or not path.exists():
         return {}
-    with seed_path.open("r", encoding="utf-8") as handle:
+    with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
+def load_static_seed_config(static_root: Path) -> dict:
+    return load_seed_config(static_root / "copick_config.json")
+
+
+def load_existing_config(config_path: Path) -> dict:
+    return load_seed_config(config_path)
+
+
 def build_config(static_root: Path, overlay_root: Path, name: str, description: str, seed_config: dict | None = None) -> dict:
-    seed_config = seed_config or {}
-    return {
+    seed_config = dict(seed_config or {})
+    for key in ["config_type", "overlay_root", "overlay_fs_args", "static_root", "static_fs_args"]:
+        seed_config.pop(key, None)
+    seed_config.update({
         "config_type": "filesystem",
         "name": seed_config.get("name", name),
         "description": seed_config.get("description", description),
@@ -50,7 +59,8 @@ def build_config(static_root: Path, overlay_root: Path, name: str, description: 
         "overlay_fs_args": {"auto_mkdir": True},
         "static_root": local_uri(static_root),
         "static_fs_args": {"auto_mkdir": False},
-    }
+    })
+    return seed_config
 
 
 def validate_with_copick(config_path: Path) -> tuple[bool, str]:
@@ -70,6 +80,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--static-root", default=None, help="Absolute path to the local static data tree.")
     parser.add_argument("--overlay-root", default=None, help="Absolute path for local writable overlay data.")
     parser.add_argument("--config-path", default=None, help="Path to write the copick config JSON.")
+    parser.add_argument("--seed-config", default=None, help="Optional copick config JSON to use as the seed instead of static_root/copick_config.json.")
     parser.add_argument("--project-name", default=None)
     parser.add_argument("--description", default=None)
     parser.add_argument("--skip-validation", action="store_true", help="Write the config without attempting to open it with copick.")
@@ -111,7 +122,14 @@ def main() -> int:
         )
         return 3
 
-    seed_config = load_static_seed_config(static_root)
+    seed_config_path = Path(args.seed_config).expanduser() if args.seed_config else None
+    existing_config = load_existing_config(config_path)
+    if existing_config:
+        seed_config = existing_config
+    elif seed_config_path:
+        seed_config = load_seed_config(seed_config_path)
+    else:
+        seed_config = load_static_seed_config(static_root)
     overlay_root.mkdir(parents=True, exist_ok=True)
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
