@@ -158,8 +158,8 @@ def download_run_via_aws_sync(run, source_cache_root: Path, dataset_id: str, dry
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download a single run directly from the CryoET Portal and create a local copick annotation project.")
-    parser.add_argument("--dataset-id", required=True, help="Portal dataset id, for example 10476.")
-    parser.add_argument("--preset", choices=["bacteria", "yeast", "hela"], required=True, help="Class preset to apply.")
+    parser.add_argument("--dataset-id", default="10476", help="Portal dataset id. Defaults to 10476.")
+    parser.add_argument("--preset", choices=["bacteria", "yeast", "hela"], default="hela", help="Class preset to apply. Defaults to hela.")
     parser.add_argument("--run-id", required=True, help="Exact Portal run id to download.")
     parser.add_argument("--projects-dir", default=str(Path.cwd() / "projects"), help="Parent directory where the local project folder will be created.")
     parser.add_argument("--remote-host", default="ssh.rc.byu.edu", help="Remote host used later during finalize/upload.")

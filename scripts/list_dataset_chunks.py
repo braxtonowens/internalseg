@@ -7,8 +7,8 @@ from bootstrap_local_annotation_project import portal_runs
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="List available runs for a Portal dataset.")
-    parser.add_argument("--dataset-id", required=True, help="Portal dataset id, for example 10476.")
-    parser.add_argument("--preset", choices=["bacteria", "yeast", "hela"], required=False, help="Optional class preset label to print alongside the run list.")
+    parser.add_argument("--dataset-id", default="10476", help="Portal dataset id. Defaults to 10476.")
+    parser.add_argument("--preset", choices=["bacteria", "yeast", "hela"], default="hela", help="Class preset label. Defaults to hela.")
     return parser.parse_args()
 
 

@@ -97,25 +97,25 @@ python scripts/bootstrap_local_annotation_project.py --dataset-id 10476 --preset
 Open the annotation launcher:
 
 ```bash
-python scripts/launch_napari_nninteractive.py --project-config /path/to/projects/dataset-10476-hela-run-<run_id>/project_config.json
+python scripts/launch_napari_nninteractive.py --project-config projects/dataset-10476-hela-run-<run_id>/project_config.json
 ```
 
 Open the run directly:
 
 ```bash
-python scripts/open_run_in_napari.py 10476-<run_id> --project-config /path/to/projects/dataset-10476-hela-run-<run_id>/project_config.json
+python scripts/open_run_in_napari.py 10476-<run_id> --project-config projects/dataset-10476-hela-run-<run_id>/project_config.json
 ```
 
 Check local completion:
 
 ```bash
-python scripts/report_dataset_completion.py --project-config /path/to/projects/dataset-10476-hela-run-<run_id>/project_config.json
+python scripts/report_dataset_completion.py --project-config projects/dataset-10476-hela-run-<run_id>/project_config.json
 ```
 
 Finalize and upload:
 
 ```bash
-python scripts/finalize_annotation_project.py --project-config /path/to/projects/dataset-10476-hela-run-<run_id>/project_config.json
+python scripts/finalize_annotation_project.py --project-config projects/dataset-10476-hela-run-<run_id>/project_config.json
 ```
 
 `finalize_annotation_project.py` now syncs the selected run with `rsync --delete`, so the remote overlay for that run is replaced by the local overlay for that run.
