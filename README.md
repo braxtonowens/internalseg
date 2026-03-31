@@ -1,8 +1,8 @@
 # Dataset 10476 Annotation Workflow
 
-Filesystem-backed copick workflow for annotating CryoET Portal dataset `10476` in Napari with `nnInteractive`.
+Filesystem-backed copick workflow for annotating CryoET Portal data in Napari with `nnInteractive`.
 
-This repository is centered on the shared mammalian segmentation project defined by the dataset-10476 object set. Raw data is downloaded directly from the CryoET Portal, converted into a local `copick_static` tree, annotated locally, and then uploaded into the shared remote overlay.
+This repository is centered on the shared mammalian segmentation project used for dataset `10476`, with the same `hela` object catalog also usable for related datasets such as `10475`. Raw data is downloaded directly from the CryoET Portal, converted into a local `copick_static` tree, annotated locally, and then uploaded into the shared remote overlay one run at a time.
 
 ## Dataset 10476 Project
 
@@ -38,8 +38,8 @@ The default annotation target is `mitochondrion`.
 ## Status
 
 This repository is usable for:
-- listing Portal dataset chunks
-- bootstrapping a local chunk project
+- listing Portal runs for a dataset
+- bootstrapping one local single-run project
 - opening tomograms in Napari
 - exporting annotations and absences to a local overlay
 - finalizing local work into the shared remote project
@@ -50,16 +50,16 @@ Current limitation:
 
 ## Repository Layout
 
-- `scripts/bootstrap_local_annotation_project.py`: bootstrap one local project chunk from the CryoET Portal
-- `scripts/list_dataset_chunks.py`: show chunk boundaries for a dataset
+- `scripts/bootstrap_local_annotation_project.py`: bootstrap one local project for a single Portal run
+- `scripts/list_dataset_chunks.py`: list available Portal runs for a dataset
 - `scripts/launch_napari_nninteractive.py`: open the next tomogram in Napari with the export dock
 - `scripts/open_run_in_napari.py`: open a specific run for inspection
 - `scripts/report_dataset_completion.py`: report segmented/absent/missing status for a local project
-- `scripts/finalize_annotation_project.py`: upload overlay files and update the remote chunk registry
+- `scripts/finalize_annotation_project.py`: upload one run's overlay files to the shared remote project and overwrite the remote run overlay with the local one
 - `scripts/build_copick_static.py`: convert downloaded Portal-style data into local `copick_static`
 - `scripts/setup_copick_project.py`: regenerate local `copick_config.json`
 - `scripts/copick_project_common.py`: shared presets and overlay-status helpers
-- `scripts/chunk_registry_common.py`: shared chunk-registry helpers
+- `scripts/chunk_registry_common.py`: shared SSH helper used by finalize
 - `scripts/sync_remote_worktree.sh`: sync this repo to the shared remote checkout
 
 ## Environment
@@ -82,41 +82,43 @@ aws --version
 
 ## Workflow
 
-List chunks for dataset `10476`:
+List available runs for dataset `10476`:
 
 ```bash
-python scripts/list_dataset_chunks.py --dataset-id 10476 --preset hela --chunk-size 5
+python scripts/list_dataset_chunks.py --dataset-id 10476 --preset hela
 ```
 
-Bootstrap one chunk locally:
+Bootstrap one run locally:
 
 ```bash
-python scripts/bootstrap_local_annotation_project.py --dataset-id 10476 --preset hela --chunk-size 5 --chunk-index 1 --user-id <annotator_id>
+python scripts/bootstrap_local_annotation_project.py --dataset-id 10476 --preset hela --run-name <run_name> --user-id <annotator_id>
 ```
 
 Open the annotation launcher:
 
 ```bash
-python scripts/launch_napari_nninteractive.py --project-config /path/to/projects/dataset-10476-hela-chunk-001-of-XXX/project_config.json
+python scripts/launch_napari_nninteractive.py --project-config /path/to/projects/dataset-10476-hela-<run_name>/project_config.json
 ```
 
-Open a specific run directly:
+Open the run directly:
 
 ```bash
-python scripts/open_run_in_napari.py 10476-<run_name> --project-config /path/to/projects/dataset-10476-hela-chunk-001-of-XXX/project_config.json
+python scripts/open_run_in_napari.py 10476-<run_name> --project-config /path/to/projects/dataset-10476-hela-<run_name>/project_config.json
 ```
 
 Check local completion:
 
 ```bash
-python scripts/report_dataset_completion.py --project-config /path/to/projects/dataset-10476-hela-chunk-001-of-XXX/project_config.json
+python scripts/report_dataset_completion.py --project-config /path/to/projects/dataset-10476-hela-<run_name>/project_config.json
 ```
 
 Finalize and upload:
 
 ```bash
-python scripts/finalize_annotation_project.py --project-config /path/to/projects/dataset-10476-hela-chunk-001-of-XXX/project_config.json
+python scripts/finalize_annotation_project.py --project-config /path/to/projects/dataset-10476-hela-<run_name>/project_config.json
 ```
+
+`finalize_annotation_project.py` now syncs the selected run with `rsync --delete`, so the remote overlay for that run is replaced by the local overlay for that run.
 
 ## Remote Paths
 

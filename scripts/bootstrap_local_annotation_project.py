@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from chunk_registry_common import build_registry
 from copick_project_common import preset_default_object, preset_description, preset_objects, preset_project_name, preset_template, save_json
 
 
@@ -27,7 +26,7 @@ def run_command(cmd: list[str], dry_run: bool = False) -> int:
 
 
 def sanitize_portal_name(value: str) -> str:
-    sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1F\x7F\s_]+', '-', value).strip('-')
+    sanitized = re.sub(r'[<>:"/\|?*\s_]+', '-', value).strip('-')
     if not sanitized:
         raise SystemExit(f"error: invalid empty name after sanitizing {value!r}")
     return sanitized
@@ -42,27 +41,20 @@ def portal_runs(dataset_id: int):
     return sorted(cdp.Run.find(client, [cdp.Run.dataset_id == dataset_id]), key=lambda run: run.name)
 
 
-def dataset_project_name(dataset_id: str, preset: str, chunk_index: int, chunk_count: int) -> str:
-    base = f"dataset-{dataset_id}-{preset}"
-    if chunk_count == 1:
-        return base
-    return f"{base}-chunk-{chunk_index:03d}-of-{chunk_count:03d}"
-
-
+def project_folder_name(dataset_id: str, preset: str, run_name: str) -> str:
+    return f"dataset-{dataset_id}-{preset}-{sanitize_portal_name(run_name)}"
 
 
 def write_local_project(
     project_root: Path,
     dataset_id: str,
     preset: str,
+    run_name: str,
     user_id: str,
     remote_host: str,
     remote_projects_root: str,
-    selected_source_runs: list[str],
-    selected_copick_runs: list[str],
-    chunk_size: int,
-    chunk_index: int,
-    chunk_count: int,
+    selected_source_run: str,
+    selected_copick_run: str,
 ) -> tuple[Path, Path, Path, Path, Path]:
     source_cache_root = project_root / "source_dataset"
     static_root = project_root / "copick_static"
@@ -76,9 +68,7 @@ def write_local_project(
     static_root.mkdir(parents=True, exist_ok=True)
     overlay_root.mkdir(parents=True, exist_ok=True)
 
-    project_name = preset_project_name(preset)
-    if chunk_count > 1:
-        project_name = f"{project_name} Chunk {chunk_index}/{chunk_count}"
+    project_name = f"{preset_project_name(preset)} {run_name}"
     description = preset_description(preset)
     template = preset_template(preset)
     pickable_objects = preset_objects(preset)
@@ -123,12 +113,8 @@ def write_local_project(
         "source_cache_root": str(source_cache_root),
         "project_root": str(project_root),
         "project_config_path": str(project_config_path),
-        "selected_runs": selected_source_runs,
-        "selected_copick_runs": selected_copick_runs,
-        "chunk_size": chunk_size,
-        "chunk_index": chunk_index,
-        "chunk_count": chunk_count,
-        "registry_path": None,
+        "selected_run": selected_source_run,
+        "selected_copick_run": selected_copick_run,
     }
     save_json(manifest_path, manifest)
     return source_cache_root, static_root, overlay_root, project_config_path, manifest_path
@@ -169,11 +155,10 @@ def download_run_via_aws_sync(run, source_cache_root: Path, dataset_id: str, dry
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Download a chunk of runs directly from the CryoET Portal and create a local copick annotation project.")
-    parser.add_argument("--dataset-id", required=True, help="Portal dataset id, for example 10274.")
+    parser = argparse.ArgumentParser(description="Download a single run directly from the CryoET Portal and create a local copick annotation project.")
+    parser.add_argument("--dataset-id", required=True, help="Portal dataset id, for example 10476.")
     parser.add_argument("--preset", choices=["bacteria", "yeast", "hela"], required=True, help="Class preset to apply.")
-    parser.add_argument("--chunk-size", type=int, required=True, help="Number of runs to include in one local chunk.")
-    parser.add_argument("--chunk-index", type=int, default=1, help="1-based chunk index to download.")
+    parser.add_argument("--run-name", required=True, help="Exact Portal run name to download.")
     parser.add_argument("--projects-dir", default=str(Path.cwd() / "projects"), help="Parent directory where the local project folder will be created.")
     parser.add_argument("--remote-host", default="ssh.rc.byu.edu", help="Remote host used later during finalize/upload.")
     parser.add_argument("--remote-projects-root", default="/grphome/grp_tomo/nobackup/archive/copick_projects", help="Remote parent directory used later during finalize/upload.")
@@ -193,34 +178,24 @@ def main() -> int:
     if not runs:
         print(f"error: no runs found for dataset {args.dataset_id}", file=sys.stderr)
         return 2
-    source_run_names = [run.name for run in runs]
-    registry_preview = build_registry(args.dataset_id, args.preset, source_run_names, args.chunk_size)
 
-    chunk_count = int(registry_preview["chunk_count"])
-    chunk_index = int(args.chunk_index)
-    if chunk_index < 1 or chunk_index > chunk_count:
-        print(f"error: --chunk-index must be between 1 and {chunk_count}", file=sys.stderr)
+    target_run = next((run for run in runs if run.name == args.run_name), None)
+    if target_run is None:
+        print(f"error: run not found in dataset {args.dataset_id}: {args.run_name}", file=sys.stderr)
         return 2
 
-    selected_source_runs = next(chunk["selected_runs"] for chunk in registry_preview["chunks"] if int(chunk["chunk_index"]) == chunk_index)
-    selected_names = set(selected_source_runs)
-    selected_run_objects = [run for run in runs if run.name in selected_names]
-    selected_copick_runs = [sanitize_portal_name(f"{args.dataset_id}-{run.name}") for run in selected_run_objects]
-
-    project_name = dataset_project_name(args.dataset_id, args.preset, chunk_index, chunk_count)
-    project_root = Path(args.projects_dir).expanduser() / project_name
+    selected_copick_run = sanitize_portal_name(f"{args.dataset_id}-{target_run.name}")
+    project_root = Path(args.projects_dir).expanduser() / project_folder_name(args.dataset_id, args.preset, target_run.name)
     source_cache_root, static_root, _overlay_root, project_config_path, manifest_path = write_local_project(
         project_root=project_root,
         dataset_id=args.dataset_id,
         preset=args.preset,
+        run_name=target_run.name,
         user_id=user_id,
         remote_host=args.remote_host,
         remote_projects_root=args.remote_projects_root,
-        selected_source_runs=selected_source_runs,
-        selected_copick_runs=selected_copick_runs,
-        chunk_size=args.chunk_size,
-        chunk_index=chunk_index,
-        chunk_count=chunk_count,
+        selected_source_run=target_run.name,
+        selected_copick_run=selected_copick_run,
     )
 
     conversion_config_path = project_root / "conversion_config.json"
@@ -237,13 +212,12 @@ def main() -> int:
     }
     save_json(conversion_config_path, conversion_config)
 
-    for run in selected_run_objects:
-        if args.download_method == "aws-sync":
-            rc = download_run_via_aws_sync(run, source_cache_root, args.dataset_id, args.dry_run)
-            if rc != 0:
-                return rc
-        else:
-            download_run_via_portal(run, source_cache_root, args.dataset_id, args.dry_run)
+    if args.download_method == "aws-sync":
+        rc = download_run_via_aws_sync(target_run, source_cache_root, args.dataset_id, args.dry_run)
+        if rc != 0:
+            return rc
+    else:
+        download_run_via_portal(target_run, source_cache_root, args.dataset_id, args.dry_run)
 
     rc = run_command([sys.executable, str(scripts_dir / "build_copick_static.py"), "--conversion-config", str(conversion_config_path)], dry_run=args.dry_run)
     if rc != 0:
@@ -257,10 +231,8 @@ def main() -> int:
     print(f"project config: {project_config_path}")
     print(f"manifest: {manifest_path}")
     print(f"download method: {args.download_method}")
-    print(f"chunk: {chunk_index}/{chunk_count}")
-    print(f"runs in chunk: {len(selected_source_runs)}")
-    print(f"first run: {selected_source_runs[0]}")
-    print(f"last run: {selected_source_runs[-1]}")
+    print(f"run: {target_run.name}")
+    print(f"copick run: {selected_copick_run}")
     return 0
 
 

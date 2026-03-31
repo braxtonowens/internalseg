@@ -136,10 +136,8 @@ def segmentation_output_path(
 ) -> Path:
     run_name = infer_run_name(tomogram)
     voxel_spacing = infer_voxel_spacing(tomogram)
-    user_token = sanitize_token(user_id)
-    session_token = sanitize_token(session_id)
     object_token = sanitize_token(object_name)
-    filename = f"{voxel_spacing}_{user_token}_{session_token}_{object_token}.zarr"
+    filename = f"{voxel_spacing}_{object_token}.zarr"
     return overlay_root / "ExperimentRuns" / run_name / "Segmentations" / filename
 
 
@@ -225,7 +223,6 @@ def build_segmentation_metadata(tomogram: Path, export_path: Path, user_id: str,
         "run_name": infer_run_name(tomogram),
         "voxel_spacing": infer_voxel_spacing(tomogram),
         "user_id": sanitize_token(user_id),
-        "session_id": sanitize_token(session_id),
         "object_name": sanitize_token(object_name),
         "source_tomogram": str(tomogram),
         "export_path": str(export_path),
@@ -244,31 +241,6 @@ def annotation_summary_lines(overlay_root: Path, tomogram: Path, object_names: l
     return shared_annotation_summary_lines(overlay_root, infer_run_name(tomogram), object_names)
 
 
-def next_tomogram_command(selected_object_name: str) -> list[str]:
-    value_flags = {"--project-config", "--copick-config", "--run", "--tomogram", "--user-id", "--session-id", "--object-name", "--plugin"}
-    skip_value_flags = {"--run", "--tomogram", "--session-id", "--object-name"}
-    passthrough: list[str] = []
-    argv = sys.argv[1:]
-    index = 0
-    while index < len(argv):
-        arg = argv[index]
-        if "=" in arg and arg.startswith("--"):
-            flag, value = arg.split("=", 1)
-            if flag not in skip_value_flags:
-                passthrough.append(arg)
-            index += 1
-            continue
-        if arg in value_flags:
-            if arg not in skip_value_flags:
-                passthrough.append(arg)
-                if index + 1 < len(argv):
-                    passthrough.append(argv[index + 1])
-            index += 2
-            continue
-        passthrough.append(arg)
-        index += 1
-    passthrough.extend(["--object-name", selected_object_name])
-    return [sys.executable, str(Path(__file__).resolve()), *passthrough]
 
 
 def available_instance_ids(data: np.ndarray | None) -> list[int]:
@@ -368,8 +340,6 @@ def install_save_helper(
     absent_button = QPushButton("Mark Object Absent For This Run")
     layout.addWidget(absent_button)
 
-    next_button = QPushButton("Next Tomogram")
-    layout.addWidget(next_button)
 
     def current_object_name() -> str:
         return object_combo.currentText().strip() or default_object_name
@@ -479,21 +449,15 @@ def install_save_helper(
         status_label.setText(message)
         update_annotation_summary()
 
-    def open_next_tomogram(event=None) -> None:
-        command = next_tomogram_command(current_object_name())
-        viewer.status = f"Opening next tomogram for {current_object_name()}"
-        status_label.setText(f"Opening next tomogram for {current_object_name()}...")
-        subprocess.Popen(command, cwd=str(Path.cwd()))
-        viewer.close()
+
+
 
     object_combo.currentTextChanged.connect(lambda _: update_target_label())
     refresh_button.clicked.connect(refresh_instance_choices)
     save_button.clicked.connect(save_active_labels)
     absent_button.clicked.connect(mark_object_absent)
-    next_button.clicked.connect(open_next_tomogram)
     viewer.bind_key("Ctrl-Shift-S", save_active_labels, overwrite=True)
     viewer.bind_key("Ctrl-Shift-A", mark_object_absent, overwrite=True)
-    viewer.bind_key("Ctrl-Shift-N", open_next_tomogram, overwrite=True)
     viewer.window.add_dock_widget(panel, area="right", name="Copick Export")
     refresh_instance_choices()
     update_annotation_summary()
@@ -535,12 +499,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--user-id",
         default="braxton",
-        help="User identifier to embed in the suggested copick segmentation filename.",
+        help="User identifier to embed in the segmentation metadata.",
     )
     parser.add_argument(
         "--session-id",
         default=default_session_id(),
-        help="Session identifier to embed in the suggested copick segmentation filename.",
+        help="Session identifier to embed in the segmentation metadata.",
     )
     parser.add_argument(
         "--object-name",
