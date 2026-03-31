@@ -27,9 +27,9 @@ def build_report(project_config_path: Path) -> dict:
     missing = 0
     missing_pairs = []
 
-    for run_name in runs:
-        statuses = run_object_statuses(overlay_root, run_name, object_names)
-        row = {"run_name": run_name, "objects": {}}
+    for run_id in runs:
+        statuses = run_object_statuses(overlay_root, run_id, object_names)
+        row = {"run_id": run_id, "objects": {}}
         for object_name in object_names:
             status = statuses[object_name]["status"]
             row["objects"][object_name] = status
@@ -39,7 +39,7 @@ def build_report(project_config_path: Path) -> dict:
                 absent += 1
             else:
                 missing += 1
-                missing_pairs.append({"run_name": run_name, "object_name": object_name})
+                missing_pairs.append({"run_id": run_id, "object_name": object_name})
         run_records.append(row)
 
     total_cells = len(runs) * len(object_names)
@@ -70,17 +70,17 @@ def print_report(report: dict) -> None:
     for run in report["runs"]:
         missing_objects = [name for name, status in run["objects"].items() if status == "missing"]
         if missing_objects:
-            print(f"{run['run_name']}: missing {', '.join(missing_objects)}")
+            print(f"{run['run_id']}: missing {', '.join(missing_objects)}")
         else:
-            print(f"{run['run_name']}: complete")
+            print(f"{run['run_id']}: complete")
 
 
 def write_csv(report: dict, path: Path) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["run_name", *report["object_names"]])
+        writer.writerow(["run_id", *report["object_names"]])
         for run in report["runs"]:
-            writer.writerow([run["run_name"], *[run["objects"][name] for name in report["object_names"]]])
+            writer.writerow([run["run_id"], *[run["objects"][name] for name in report["object_names"]]])
 
 
 def parse_args() -> argparse.Namespace:

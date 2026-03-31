@@ -38,22 +38,23 @@ def portal_runs(dataset_id: int):
     except ImportError as exc:
         raise SystemExit("error: cryoet_data_portal is not installed in the active Python environment") from exc
     client = cdp.Client()
-    return sorted(cdp.Run.find(client, [cdp.Run.dataset_id == dataset_id]), key=lambda run: run.name)
+    return sorted(cdp.Run.find(client, [cdp.Run.dataset_id == dataset_id]), key=lambda run: int(run.id))
 
 
-def project_folder_name(dataset_id: str, preset: str, run_name: str) -> str:
-    return f"dataset-{dataset_id}-{preset}-{sanitize_portal_name(run_name)}"
+def project_folder_name(dataset_id: str, preset: str, run_id: str) -> str:
+    return f"dataset-{dataset_id}-{preset}-run-{sanitize_portal_name(run_id)}"
 
 
 def write_local_project(
     project_root: Path,
     dataset_id: str,
     preset: str,
-    run_name: str,
+    run_id: str,
     user_id: str,
     remote_host: str,
     remote_projects_root: str,
-    selected_source_run: str,
+    selected_source_run_name: str,
+    selected_source_run_id: str,
     selected_copick_run: str,
 ) -> tuple[Path, Path, Path, Path, Path]:
     source_cache_root = project_root / "source_dataset"
@@ -68,7 +69,7 @@ def write_local_project(
     static_root.mkdir(parents=True, exist_ok=True)
     overlay_root.mkdir(parents=True, exist_ok=True)
 
-    project_name = f"{preset_project_name(preset)} {run_name}"
+    project_name = f"{preset_project_name(preset)} run {run_id}"
     description = preset_description(preset)
     template = preset_template(preset)
     pickable_objects = preset_objects(preset)
@@ -113,7 +114,8 @@ def write_local_project(
         "source_cache_root": str(source_cache_root),
         "project_root": str(project_root),
         "project_config_path": str(project_config_path),
-        "selected_run": selected_source_run,
+        "selected_run_id": selected_source_run_id,
+        "source_run_name": selected_source_run_name,
         "selected_copick_run": selected_copick_run,
     }
     save_json(manifest_path, manifest)
@@ -123,9 +125,9 @@ def write_local_project(
 def download_run_via_portal(run, source_cache_root: Path, dataset_id: str, dry_run: bool) -> None:
     destination = source_cache_root / str(dataset_id)
     if dry_run:
-        print(f"portal download: dataset {dataset_id} run {run.name} -> {destination}")
+        print(f"portal download: dataset {dataset_id} run id {run.id} -> {destination}")
         return
-    print(f"downloading portal run: {run.name}")
+    print(f"downloading portal run id: {run.id}")
     run.download_everything(dest_path=str(destination))
 
 
@@ -158,7 +160,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Download a single run directly from the CryoET Portal and create a local copick annotation project.")
     parser.add_argument("--dataset-id", required=True, help="Portal dataset id, for example 10476.")
     parser.add_argument("--preset", choices=["bacteria", "yeast", "hela"], required=True, help="Class preset to apply.")
-    parser.add_argument("--run-name", required=True, help="Exact Portal run name to download.")
+    parser.add_argument("--run-id", required=True, help="Exact Portal run id to download.")
     parser.add_argument("--projects-dir", default=str(Path.cwd() / "projects"), help="Parent directory where the local project folder will be created.")
     parser.add_argument("--remote-host", default="ssh.rc.byu.edu", help="Remote host used later during finalize/upload.")
     parser.add_argument("--remote-projects-root", default="/grphome/grp_tomo/nobackup/archive/copick_projects", help="Remote parent directory used later during finalize/upload.")
@@ -179,22 +181,24 @@ def main() -> int:
         print(f"error: no runs found for dataset {args.dataset_id}", file=sys.stderr)
         return 2
 
-    target_run = next((run for run in runs if run.name == args.run_name), None)
+    target_run = next((run for run in runs if str(run.id) == str(args.run_id)), None)
     if target_run is None:
-        print(f"error: run not found in dataset {args.dataset_id}: {args.run_name}", file=sys.stderr)
+        print(f"error: run not found in dataset {args.dataset_id}: {args.run_id}", file=sys.stderr)
         return 2
 
-    selected_copick_run = sanitize_portal_name(f"{args.dataset_id}-{target_run.name}")
-    project_root = Path(args.projects_dir).expanduser() / project_folder_name(args.dataset_id, args.preset, target_run.name)
+    run_id = str(target_run.id)
+    selected_copick_run = sanitize_portal_name(f"{args.dataset_id}-{run_id}")
+    project_root = Path(args.projects_dir).expanduser() / project_folder_name(args.dataset_id, args.preset, run_id)
     source_cache_root, static_root, _overlay_root, project_config_path, manifest_path = write_local_project(
         project_root=project_root,
         dataset_id=args.dataset_id,
         preset=args.preset,
-        run_name=target_run.name,
+        run_id=run_id,
         user_id=user_id,
         remote_host=args.remote_host,
         remote_projects_root=args.remote_projects_root,
-        selected_source_run=target_run.name,
+        selected_source_run_name=target_run.name,
+        selected_source_run_id=run_id,
         selected_copick_run=selected_copick_run,
     )
 
@@ -209,6 +213,14 @@ def main() -> int:
         "project_config_path": str(project_config_path),
         "default_particle_radius": 60.0,
         "default_segmentation_radius": 10.0,
+        "selected_runs": [
+            {
+                "dataset_id": str(args.dataset_id),
+                "source_run_name": target_run.name,
+                "run_id": run_id,
+                "copick_run": selected_copick_run,
+            }
+        ],
     }
     save_json(conversion_config_path, conversion_config)
 
@@ -231,8 +243,8 @@ def main() -> int:
     print(f"project config: {project_config_path}")
     print(f"manifest: {manifest_path}")
     print(f"download method: {args.download_method}")
-    print(f"run: {target_run.name}")
-    print(f"copick run: {selected_copick_run}")
+    print(f"run id: {run_id}")
+    print(f"copick run id: {selected_copick_run}")
     return 0
 
 

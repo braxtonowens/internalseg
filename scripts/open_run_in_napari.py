@@ -88,7 +88,7 @@ def load_segmentation_data(path: Path) -> np.ndarray:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Open one run's tomogram and segmentations in Napari.")
-    parser.add_argument("run", help="Run name, for example 10202-mba2012-04-21-2")
+    parser.add_argument("run", help="Run id key, for example 10476-12345")
     parser.add_argument(
         "--project-config",
         default=str(Path.cwd() / "project_config.json"),
@@ -121,14 +121,14 @@ def main() -> int:
 
     tomograms = sorted(run_static_root.glob("VoxelSpacing*/*.zarr"))
     if not tomograms:
-        print(f"error: no tomograms found for run: {args.run}", file=sys.stderr)
+        print(f"error: no tomograms found for run id: {args.run}", file=sys.stderr)
         return 2
 
     overlay_seg_dir = run_overlay_root / "Segmentations"
     overlay_paths = sorted(overlay_seg_dir.glob("*.zarr")) if args.all_overlay_versions else latest_overlay_segmentations(overlay_seg_dir)
     static_seg_paths = sorted((run_static_root / "Segmentations").glob("*.zarr")) if args.include_static_segmentations else []
 
-    print(f"run: {args.run}")
+    print(f"run id: {args.run}")
     print(tomograms[0])
     for path in static_seg_paths:
         print(path)

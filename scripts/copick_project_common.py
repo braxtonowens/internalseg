@@ -385,7 +385,7 @@ def run_object_statuses(overlay_root: Path, run_name: str, object_names: list[st
 
 def annotation_summary_lines(overlay_root: Path, run_name: str, object_names: list[str]) -> list[str]:
     statuses = run_object_statuses(overlay_root, run_name, object_names)
-    lines = [f"Run annotation status: {run_name}"]
+    lines = [f"Run id annotation status: {run_name}"]
     for object_name in object_names:
         status = statuses[object_name]
         if status["status"] == "segmented":

@@ -268,6 +268,17 @@ def selected_dataset_ids(source_root: Path, configured_ids: list[str], author_fi
     return selected
 
 
+def selected_run_lookup(config: dict) -> dict[tuple[str, str], dict]:
+    lookup: dict[tuple[str, str], dict] = {}
+    for item in config.get("selected_runs", []):
+        dataset_id = str(item.get("dataset_id", "")).strip()
+        source_run_name = str(item.get("source_run_name", "")).strip()
+        if not dataset_id or not source_run_name:
+            continue
+        lookup[(dataset_id, source_run_name)] = item
+    return lookup
+
+
 def main() -> int:
     args = parse_args()
     config = load_json(Path(args.conversion_config).expanduser())
@@ -281,6 +292,7 @@ def main() -> int:
     project_config_path = Path(config.get("project_config_path", Path.cwd() / "project_config.json")).expanduser()
     particle_radius = float(config.get("default_particle_radius", 60.0))
     segmentation_radius = float(config.get("default_segmentation_radius", 10.0))
+    run_lookup = selected_run_lookup(config)
 
     if not source_root.exists():
         print(f"error: source root does not exist: {source_root}", file=sys.stderr)
@@ -311,7 +323,11 @@ def main() -> int:
         )
         for run_dir in run_dirs:
             source_run_name = run_dir.name
-            run_name = sanitize_name(f"{dataset_id}-{source_run_name}")
+            selected_run = run_lookup.get((dataset_id, source_run_name))
+            if selected_run is not None:
+                run_name = sanitize_name(str(selected_run.get("copick_run", f"{dataset_id}-{selected_run.get('run_id', source_run_name)}")))
+            else:
+                run_name = sanitize_name(f"{dataset_id}-{source_run_name}")
             dest_run = output_static_root / "ExperimentRuns" / run_name
             ensure_empty_dir(dest_run)
             ensure_empty_dir(dest_run / "Picks")

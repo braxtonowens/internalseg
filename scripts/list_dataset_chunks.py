@@ -15,19 +15,19 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     runs = portal_runs(int(args.dataset_id))
-    run_names = [run.name for run in runs]
-    if not run_names:
+    run_ids = [str(run.id) for run in runs]
+    if not run_ids:
         print(f"error: no runs found for dataset {args.dataset_id}")
         return 2
 
     print(f"dataset: {args.dataset_id}")
     if args.preset:
         print(f"preset: {args.preset}")
-    print(f"run count: {len(run_names)}")
+    print(f"run count: {len(run_ids)}")
     print("source: CryoET Portal")
     print()
-    for index, run_name in enumerate(run_names, start=1):
-        print(f"{index:03d} {run_name}")
+    for index, run_id in enumerate(run_ids, start=1):
+        print(f"{index:03d} {run_id}")
     return 0
 
 
