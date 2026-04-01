@@ -51,8 +51,6 @@ def write_local_project(
     preset: str,
     run_id: str,
     user_id: str,
-    remote_host: str,
-    remote_projects_root: str,
     selected_source_run_name: str,
     selected_source_run_id: str,
     selected_copick_run: str,
@@ -108,8 +106,6 @@ def write_local_project(
         "dataset_id": str(dataset_id),
         "preset": preset,
         "user_id": user_id,
-        "remote_host": remote_host,
-        "remote_projects_root": remote_projects_root,
         "object_names": [str(obj.get("name", "")).strip() for obj in pickable_objects if str(obj.get("name", "")).strip()],
         "source_cache_root": str(source_cache_root),
         "project_root": str(project_root),
@@ -162,8 +158,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--preset", choices=["bacteria", "yeast", "hela"], default="hela", help="Class preset to apply. Defaults to hela.")
     parser.add_argument("--run-id", required=True, help="Exact Portal run id to download.")
     parser.add_argument("--projects-dir", default=str(Path.cwd() / "projects"), help="Parent directory where the local project folder will be created.")
-    parser.add_argument("--remote-host", default="ssh.rc.byu.edu", help="Remote host used later during finalize/upload.")
-    parser.add_argument("--remote-projects-root", default="/grphome/grp_tomo/nobackup/archive/copick_projects", help="Remote parent directory used later during finalize/upload.")
     parser.add_argument("--user-id", default=None, help="Annotation user id to store in metadata. If omitted, prompt interactively.")
     parser.add_argument("--link-mode", choices=["symlink", "copy"], default="symlink", help="How to materialize downloaded raw data into the local copick static tree.")
     parser.add_argument("--download-method", choices=["portal", "aws-sync"], default="aws-sync", help="How to fetch run data from the CryoET Portal.")
@@ -195,8 +189,6 @@ def main() -> int:
         preset=args.preset,
         run_id=run_id,
         user_id=user_id,
-        remote_host=args.remote_host,
-        remote_projects_root=args.remote_projects_root,
         selected_source_run_name=target_run.name,
         selected_source_run_id=run_id,
         selected_copick_run=selected_copick_run,

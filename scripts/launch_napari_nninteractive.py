@@ -200,7 +200,7 @@ def save_labels_layer_to_zarr(data: np.ndarray, export_path: Path, metadata: dic
     shape = tuple(int(dim) for dim in data.shape)
     if len(shape) != 3:
         raise ValueError(f"unsupported label array rank: {len(shape)}")
-    chunks = tuple(max(1, min(dim, target)) for dim, target in zip(shape, (1, 256, 256), strict=True))
+    chunks = tuple(max(1, min(dim, target)) for dim, target in zip(shape, (16, 512, 512), strict=True))
     store = zarr.open_array(str(export_path), mode="w", shape=shape, chunks=chunks, dtype=np.uint16)
 
     for z0 in range(0, shape[0], chunks[0]):

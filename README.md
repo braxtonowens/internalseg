@@ -2,7 +2,7 @@
 
 Filesystem-backed copick workflow for annotating CryoET Portal data in Napari with `nnInteractive`.
 
-This repository is centered on the shared mammalian segmentation project used for dataset `10476`, with the same `hela` object catalog also usable for related datasets such as `10475`. Raw data is downloaded directly from the CryoET Portal, converted into a local `copick_static` tree, annotated locally, and then uploaded into the shared remote overlay one run at a time.
+This repository is centered on the shared mammalian segmentation project used for dataset `10476`, with the same `hela` object catalog also usable for related datasets such as `10475`. Raw data is downloaded directly from the CryoET Portal, converted into a local `copick_static` tree, and annotated locally.
 
 ## Dataset 10476 Project
 
@@ -42,7 +42,6 @@ This repository is usable for:
 - bootstrapping one local single-run project
 - opening tomograms in Napari
 - exporting annotations and absences to a local overlay
-- finalizing local work into the shared remote project
 
 Current limitation:
 - saving a single selected instance in the export dock still needs more testing on large tomograms
@@ -55,11 +54,9 @@ Current limitation:
 - `scripts/launch_napari_nninteractive.py`: open the next tomogram in Napari with the export dock
 - `scripts/open_run_in_napari.py`: open a specific run for inspection
 - `scripts/report_dataset_completion.py`: report segmented/absent/missing status for a local project
-- `scripts/finalize_annotation_project.py`: upload one run's overlay files to the shared remote project and overwrite the remote run overlay with the local one
 - `scripts/build_copick_static.py`: convert downloaded Portal-style data into local `copick_static`
 - `scripts/setup_copick_project.py`: regenerate local `copick_config.json`
 - `scripts/copick_project_common.py`: shared presets and overlay-status helpers
-- `scripts/chunk_registry_common.py`: shared SSH helper used by finalize
 - `scripts/sync_remote_worktree.sh`: sync this repo to the shared remote checkout
 
 ## Environment
@@ -112,13 +109,13 @@ Check local completion:
 python scripts/report_dataset_completion.py --project-config projects/dataset-10476-hela-run-<run_id>/project_config.json
 ```
 
-Finalize and upload:
+Copy one run overlay to the remote server:
 
 ```bash
-python scripts/finalize_annotation_project.py --project-config projects/dataset-10476-hela-run-<run_id>/project_config.json
+scp -r /path/to/projects/dataset-10476-hela-run-<run_id>/copick_overlay/ExperimentRuns/10476-<run_id> <remote_user>@ssh.rc.byu.edu:/grphome/grp_tomo/nobackup/archive/copick_projects/dataset-10476-hela/copick_overlay/ExperimentRuns/
 ```
 
-`finalize_annotation_project.py` now syncs the selected run with `rsync --delete`, so the remote overlay for that run is replaced by the local overlay for that run.
+This copies the local run overlay directory to the shared remote project.
 
 ## Remote Paths
 
