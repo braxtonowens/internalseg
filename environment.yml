@@ -6,7 +6,7 @@ dependencies:
   - pip
   - numpy=2.2.6
   - pip:
-      - napari==0.7.0
+      - napari==0.6.1
       - copick==1.20.0
       - cryoet-data-portal==4.8.0
       - ome-zarr==0.11.1
