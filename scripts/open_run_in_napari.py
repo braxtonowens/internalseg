@@ -47,19 +47,7 @@ def open_level0_and_scale(path: Path) -> tuple[np.ndarray, tuple[float, float, f
     root = zarr.open(str(path), mode="r")
     try:
         data = np.asarray(root["0"])
-        scale = (1.0, 1.0, 1.0)
-        attrs = getattr(root, "attrs", {})
-        multiscales = attrs.get("multiscales", []) if hasattr(attrs, "get") else []
-        if multiscales:
-            datasets = multiscales[0].get("datasets", [])
-            if datasets:
-                transforms = datasets[0].get("coordinateTransformations", [])
-                for transform in transforms:
-                    if transform.get("type") == "scale":
-                        values = transform.get("scale", [])
-                        if len(values) == 3:
-                            scale = tuple(float(v) for v in values)
-                            break
+        scale = level0_scale_from_attrs(getattr(root, "attrs", {}))
         return data, scale
     except Exception:
         array = np.asarray(zarr.open_array(str(path), mode="r"))
@@ -78,12 +66,28 @@ def robust_contrast_limits(data: np.ndarray) -> tuple[float, float]:
     return low, high
 
 
-def load_segmentation_data(path: Path) -> np.ndarray:
+def level0_scale_from_attrs(attrs) -> tuple[float, float, float]:
+    scale = (1.0, 1.0, 1.0)
+    multiscales = attrs.get("multiscales", []) if hasattr(attrs, "get") else []
+    if multiscales:
+        datasets = multiscales[0].get("datasets", [])
+        if datasets:
+            transforms = datasets[0].get("coordinateTransformations", [])
+            for transform in transforms:
+                if transform.get("type") == "scale":
+                    values = transform.get("scale", [])
+                    if len(values) == 3:
+                        scale = tuple(float(v) for v in values)
+                        break
+    return scale
+
+
+def load_segmentation_data_and_scale(path: Path) -> tuple[np.ndarray, tuple[float, float, float]]:
     root = zarr.open(str(path), mode="r")
     try:
-        return np.asarray(root["0"], dtype=np.uint16)
+        return np.asarray(root["0"], dtype=np.uint16), level0_scale_from_attrs(getattr(root, "attrs", {}))
     except Exception:
-        return np.asarray(zarr.open_array(str(path), mode="r"), dtype=np.uint16)
+        return np.asarray(zarr.open_array(str(path), mode="r"), dtype=np.uint16), (1.0, 1.0, 1.0)
 
 
 def parse_args() -> argparse.Namespace:
@@ -143,9 +147,11 @@ def main() -> int:
     image_layer.contrast_limits = robust_contrast_limits(image_data)
 
     for path in static_seg_paths:
-        viewer.add_labels(load_segmentation_data(path), name=path.stem, opacity=0.5)
+        data, seg_scale = load_segmentation_data_and_scale(path)
+        viewer.add_labels(data, name=path.stem, opacity=0.5, scale=seg_scale if seg_scale != (1.0, 1.0, 1.0) else image_scale)
     for path in overlay_paths:
-        viewer.add_labels(load_segmentation_data(path), name=path.stem, opacity=0.5)
+        data, seg_scale = load_segmentation_data_and_scale(path)
+        viewer.add_labels(data, name=path.stem, opacity=0.5, scale=seg_scale if seg_scale != (1.0, 1.0, 1.0) else image_scale)
 
     napari.run()
     return 0
